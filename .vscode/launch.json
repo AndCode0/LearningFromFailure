@@ -5,7 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "main debug",
+            "name": "resnet Debug",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "Models.VanillaResNet.resnet"
+        },
+        {
+            "name": "full model Debug",
             "type": "debugpy",
             "request": "launch",
             "module": "main.py"

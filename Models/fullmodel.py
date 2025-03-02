@@ -10,8 +10,7 @@ from util import (
     GeneralizedCELoss,
     IdxDataset,
     EMA,
-    MultiDimAverageMeter,
-    _infinite_loader,
+    MultiDimAverageMeter
 )
 import os
 
@@ -239,9 +238,7 @@ class LfFTrainer:
 
         # Track number of updated samples (weighted by average importance)
         # TODO: data.size(0) == batch size, no need to calculate it every time. Da testare
-        batch_updated = loss_weight.mean().item() * data.size(
-            0
-        )  # self.config.batch_size
+        batch_updated = loss_weight.mean().item() * data.size(0)  # self.config.batch_size
         # TODO: log loss_variance/ (b_ema | d_ema)
         return metrics, batch_updated
 
