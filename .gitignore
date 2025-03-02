@@ -1,3 +1,6 @@
+# tff-specific
+Mine.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -129,6 +132,7 @@ celerybeat.pid
 
 # Environments
 .env
+.lff
 .venv
 env/
 venv/

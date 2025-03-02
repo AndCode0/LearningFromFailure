@@ -1,19 +1,30 @@
 import torch
 import torch.nn as nn
-
-# import torch.nn.functional as F
+from typing import Dict, Any, Tuple, Union, Generator
 from torch.utils.data import DataLoader
 from torchvision import transforms as T
 from tqdm import tqdm
 import wandb
-from itertools import cycle
-from util import GeneralizedCELoss, IdxDataset, EMA, MultiDimAverageMeter
+
+from util import (
+    GeneralizedCELoss,
+    IdxDataset,
+    EMA,
+    MultiDimAverageMeter,
+    _infinite_loader,
+)
 import os
 
 
 class LfFTrainer:
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict) -> None:
+        """
+        Initialize Learning from Failure trainer.
+        
+        Args:
+            config: Configuration object containing training parameters
+        """
         self.config = config
         self.device = torch.device(
             config.device
@@ -38,22 +49,19 @@ class LfFTrainer:
         self.criterion = nn.CrossEntropyLoss(reduction="none")
         self.bias_criterion = GeneralizedCELoss(q=self.config.gce_q)
 
-    def _setup_data(self):
+    def _setup_data(self) -> None:
         """Setup datasets and data loaders"""
         if self.config.dataset_tag == "CelebA":
-            # from torchvision.datasets import CelebA
             from Data.CelebA import CustomCelebA
 
             self.num_classes = 2
-            transform = (
-                T.Compose(
-                    [
-                        T.Resize((224, 224)),
-                        T.RandomHorizontalFlip(),
-                        T.ToTensor(),
-                        T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-                    ]
-                ),
+            transform = T.Compose(
+                [
+                    T.Resize((224, 224)),
+                    T.RandomHorizontalFlip(),
+                    T.ToTensor(),
+                    T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+                ]
             )
             transform_eval = T.Compose(
                 [
@@ -68,9 +76,7 @@ class LfFTrainer:
                 split="train",
                 target_type="attr",
                 transform=transform,
-                # download=False,
             )
-
             self.val_dataset = CustomCelebA(
                 root=self.config.data_dir,
                 split="valid",
@@ -89,28 +95,28 @@ class LfFTrainer:
                 num_workers=self.config.num_workers,
                 pin_memory=True,
             )
-
             self.val_loader = DataLoader(
-                self.val_dataset,
+                self.valid_dataset,
                 batch_size=self.config.batch_size,
                 shuffle=False,
                 num_workers=self.config.num_workers,
                 pin_memory=True,
             )
+
         elif self.config["dataset"] == "ColoredMNIST":
             # TODO: add Lorenzo and Francesco's part here
             # import dataset
             # define train and val datasets and loaders
             # self.num_classes = 10 (?)
-            pass
+            raise NotImplementedError
         else:
             raise NotImplementedError
 
-    def _setup_model(self):
+    def _setup_model(self) -> None:
         """Initialize biased and debiased models"""
         if self.config.dataset_tag == "CelebA":
             from torchvision.models import resnet18
-
+            # TODO: load weights from our trained resnet
             model = resnet18(weights=None, num_classes=2).to(self.device)
         elif self.config.dataset_tag == "ColoredMINST":
             # TODO: define model
@@ -138,17 +144,13 @@ class LfFTrainer:
                 f"Optimizer {self.config.optimizer_tag} not implemented"
             )
 
-    def train_step(self, batch):
+    def train_step(self, batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> Tuple[Dict[str, float], float]:
         """Perform a single training step"""
         index, data, attr = batch
         data = data.to(self.device)
         attr = attr.to(self.device)
         label = attr[:, self.config.target_attr_idx]
         bias_label = attr[:, self.config.bias_attr_idx]
-        # NOTE: non so se il seguente passaggio serva anche per ColoredMNIST
-        # Convert -1/1 to 0/1
-        labels = (labels > 0).long()
-        bias_labels = (bias_labels > 0).long()
 
         logit_b = self.model_b(data)
         logit_d = self.model_d(data)
@@ -203,6 +205,10 @@ class LfFTrainer:
             "loss/b_train": loss_per_sample_b.mean().item(),
             "loss/d_train": loss_per_sample_d.mean().item(),
             "loss_weight/mean": loss_weight.mean().item(),
+            "loss_variance/b_ema": self.sample_loss_ema_b.parameter.var().item(),
+            "loss_std/b_ema": self.sample_loss_ema_b.parameter.std().item(),
+            "loss_variance/d_ema": self.sample_loss_ema_d.parameter.var().item(),
+            "loss_std/d_ema": self.sample_loss_ema_d.parameter.std().item(),
         }
 
         if aligned_mask.any():
@@ -237,9 +243,9 @@ class LfFTrainer:
             0
         )  # self.config.batch_size
         # TODO: log loss_variance/ (b_ema | d_ema)
-        return metrics, loss_weight.sum().item()
+        return metrics, batch_updated
 
-    def evaluate(self, model):
+    def evaluate(self, model: nn.Module) -> Dict[str, Union[float, torch.Tensor]]:
         """Evaluate model on validation set"""
         model.eval()
 
@@ -255,7 +261,7 @@ class LfFTrainer:
 
         with torch.no_grad():
             for index, data, attr in tqdm(
-                self.valid_loader, leave=False, desc="Validating"
+                self.val_loader, leave=False, desc="Validating"
             ):
                 data = data.to(self.device)
                 attr = attr.to(self.device)
@@ -288,27 +294,32 @@ class LfFTrainer:
             "acc/valid_skewed": skewed_acc,
             "attrwise_accs": accs,
         }
+    
+    def _infinite_loader(self, dataloader: DataLoader) -> Generator[Tuple[torch.Tensor, torch.Tensor, torch.Tensor], None, None]:
+        """
+        Generator that yields batches from a dataloader indefinitely
+        
+        Args:
+            dataloader: DataLoader to iterate over
+            
+        Yields:
+            Batches from the dataloader, restarting when exhausted
+        """
+        while True:
+            for batch in dataloader:
+                yield batch
 
-    def train(self):
+    def train(self) -> Dict[str, Any]:
         """Main training loop"""
         num_updated = 0
         valid_attrwise_accs_list = []
 
-        # Infinite iterator to avoid try except clauses
-        # train_iter = cycle(self.train_loader)
-        try:
-            # Get a single batch
-            for batch in self.train_loader:
-                break
-        except Exception as e:
-            print(f"Error getting batch: {e}")
-            raise
+        # Create a infinite data iterator to cycle through batches
+        train_gen = self._infinite_loader(self.train_loader)
 
         for step in tqdm(range(self.config.num_steps)):
-            # batch = next(train_iter)
-            batch = next(batch)
+            batch = next(train_gen)
 
-            # Perform training step
             metrics, batch_updated = self.train_step(batch)
             num_updated += batch_updated
 
@@ -331,7 +342,7 @@ class LfFTrainer:
                         "acc/d_valid": d_metrics["acc/valid"],
                         "acc/d_valid_aligned": d_metrics["acc/valid_aligned"],
                         "acc/d_valid_skewed": d_metrics["acc/valid_skewed"],
-                        "num_updated/avg": num_updated
+                        "num_updated/all": num_updated
                         / self.config.batch_size
                         / self.config.valid_freq,
                     },

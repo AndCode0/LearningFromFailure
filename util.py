@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from typing import List, Tuple, Any
 
 class GeneralizedCELoss(nn.Module):
     def __init__(self, q=0.7):
@@ -14,21 +15,26 @@ class GeneralizedCELoss(nn.Module):
         return ce_loss * torch.pow(targets_prob.detach(), self.q)
     
 class IdxDataset(torch.utils.data.Dataset):
-    """Dataset wrapper that also returns indices"""
-    def __init__(self, dataset):
+    """
+    Dataset wrapper that returns indices along with data for tracking sample losses.
+    """
+    def __init__(self, dataset: torch.utils.data.Dataset) -> None:
         self.dataset = dataset
         self.attr = getattr(dataset, 'attr', None)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.dataset)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> Tuple[int, Any, Any]:
         img, target = self.dataset[idx]
         return idx, img, target
         
-# TODO: pass num_classes as argument, minimal benefit
 class EMA:
-    def __init__(self, targets: torch.Tensor, alpha: float = 0.7):
+    """
+    Implements Exponential Moving Average for tracking per-sample loss dynamics.
+    """
+    # TODO: pass num_classes as argument, minimal benefit
+    def __init__(self, targets: torch.Tensor, alpha: float = 0.7)-> None:
         self.alpha = alpha
         self.parameter = torch.zeros(targets.shape[0], dtype=torch.float)
         self.num_classes = int(targets.max().item() + 1)
@@ -38,7 +44,7 @@ class EMA:
         for c in range(self.num_classes):
             self.class_masks.append((targets == c))
 
-    def update(self, loss: torch.Tensor, indices: torch.Tensor):
+    def update(self, loss: torch.Tensor, indices: torch.Tensor) -> None:
         self.parameter[indices] = self.alpha * self.parameter[indices] + (1 - self.alpha) * loss
 
     def max_loss(self, label: int) -> float:
@@ -53,19 +59,22 @@ class EMA:
         return max_val if max_val > 0 else 1.0
 
 class MultiDimAverageMeter:
-    def __init__(self, dims: list):
+    """
+    Tracks multi-dimensional metrics across different attribute combinations.
+    """
+    def __init__(self, dims: List[int]) -> None:
         self.dims = dims
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         self.counts = torch.zeros(self.dims)
         self.sums = torch.zeros(self.dims)
 
-    def add(self, values: torch.Tensor, indices: torch.Tensor):
+    def add(self, values: torch.Tensor, indices: torch.Tensor) -> None:
         # Add values at specified indices"""
-        indices_tuple = tuple(indices[:, i] for i in range(indices.shape[1]))
-        self.total[indices_tuple] += values
-        self.count[indices_tuple] += 1
+        indices_tuple = tuple(indices[:, i].long() for i in range(indices.shape[1]))
+        self.sums[indices_tuple] += values
+        self.counts[indices_tuple] += 1
 
     def get_mean(self) -> torch.Tensor:
         # Return mean values across all dimensions
