@@ -5,7 +5,7 @@ from typing import Dict, Any
 
 conf: Dict[str, Any] = {
     # Dataset configuration
-    "dataset": "ColoredMNIST",                 # Dataset name (CelebA or ColoredMNIST)
+    "dataset_tag": "ColoredMNIST",                 # Dataset name (CelebA or ColoredMNIST)
     "data_dir": "",   # Root directory for dataset storage
     "target_attr_idx": 9,                    # BlondHair attribute index for CelebA
     "bias_attr_idx": 20,                     # Male attribute index for CelebA

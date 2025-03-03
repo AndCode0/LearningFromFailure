@@ -102,7 +102,7 @@ class LfFTrainer:
                 pin_memory=True,
             )
 
-        elif self.config["dataset"] == "ColoredMNIST":
+        elif self.config["dataset_tag"] == "ColoredMNIST":
             # TODO: add Lorenzo and Francesco's part here
             # import dataset
             # define train and val datasets and loaders
