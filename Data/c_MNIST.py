@@ -87,7 +87,7 @@ def create_colored_mnist(data_dir, skew_ratio, severity, num_workers=2):
         torch.tensor(np.load(os.path.join(base_dir, "test", "attrs.npy"))[:, 0]),
         torch.tensor(np.load(os.path.join(base_dir, "test", "attrs.npy"))[:, 1])
     )
-    valid_dataset.attr = torch.stack((valid_dataset.tensors[1], train_dataset.tensors[2]), dim=1)
+    valid_dataset.attr = torch.stack((valid_dataset.tensors[1], valid_dataset.tensors[2]), dim=1)
 
     train_loader = DataLoader(train_dataset, batch_size=256, shuffle=True, num_workers=num_workers, pin_memory=True)
     valid_loader = DataLoader(valid_dataset, batch_size=256, shuffle=False, num_workers=num_workers, pin_memory=True)
