@@ -60,7 +60,7 @@ def create_colored_mnist(data_dir, skew_ratio, severity, num_workers=2):
         pickle.dump(["digit", "color"], f)
 
     for split in ["train", "test"]:
-        os.makedirs((base_dir,split), exist_ok=True)
+        os.makedirs(os.path.join(base_dir,split), exist_ok=True)
         dataset = datasets.MNIST(data_dir, train=(split == "train"), download=True, transform=transforms.ToTensor())
         bias_ratio = 1. - skew_ratio if split == "train" else 0.1
         color_labels = generate_attribute_labels(torch.tensor(dataset.targets), bias_ratio)
