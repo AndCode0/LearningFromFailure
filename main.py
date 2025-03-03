@@ -37,7 +37,7 @@ conf: Dict[str, Any] = {
     "device": "cuda" if torch.cuda.is_available() else "cpu", # Device to use for training
 }
 
-wandb.login(key='INSERISCI-KEY')
+wandb.login(key='cf0fbaf900fabe0767c84a925064c7e6232d11e6')
 # with wandb.init(mode="offline", config=conf):
 with wandb.init(
      entity="learning-from-failure", project="fullModel", id="debugRun", config=conf
