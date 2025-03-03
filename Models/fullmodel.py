@@ -107,6 +107,21 @@ class LfFTrainer:
             # import dataset
             # define train and val datasets and loaders
             # self.num_classes = 10 (?)
+            
+            from Data.c_MNIST import create_colored_mnist
+
+            self.num_classes = 10
+            self.train_loader, self.val_loader = create_colored_mnist(
+            data_dir=self.config.data_dir,
+            skew_ratio=self.config.skew_ratio,
+            severity=self.config.severity,
+            num_workers=self.config.num_workers
+            )
+
+            # Wrap datasets with IdxDataset
+            self.train_dataset = IdxDataset(self.train_loader.dataset)
+            self.valid_dataset = IdxDataset(self.val_loader.dataset)
+            
             raise NotImplementedError
         else:
             raise NotImplementedError
@@ -119,7 +134,14 @@ class LfFTrainer:
             model = resnet18(weights=None, num_classes=2).to(self.device)
         elif self.config.dataset_tag == "ColoredMINST":
             # TODO: define model
-            raise NotImplementedError
+
+            from Models.SimpleConv import SimpleConvNet
+
+            model = SimpleConvNet(num_classes=self.num_classes).to(self.device)
+            self.model_b = model.to(self.device)
+            self.model_d = model.to(self.device)
+
+         
         else:
             raise ValueError(f"Dataset {self.config.dataset_tag} not supported")
 
