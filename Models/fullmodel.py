@@ -122,7 +122,6 @@ class LfFTrainer:
             self.train_dataset = IdxDataset(self.train_loader.dataset)
             self.valid_dataset = IdxDataset(self.val_loader.dataset)
             
-            raise NotImplementedError
         else:
             raise NotImplementedError
 
