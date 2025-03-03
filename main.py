@@ -30,20 +30,20 @@ conf: Dict[str, Any] = {
     # Logging and evaluation
     "valid_freq": 100,                       # Validate every N steps
     "log_freq": 10,                          # Log metrics every N steps
-    "save_model": False,                      # Whether to save the model at the end
-    "save_dir": "INSERT/PATH/TO/SAVE_DIR",   # Directory to save model weights
+    "save_model": True,                      # Whether to save the model at the end
+    "save_dir": "./Results",   # Directory to save model weights
     
     # Hardware settings
     "device": "cuda" if torch.cuda.is_available() else "cpu", # Device to use for training
 }
 
 wandb.login(key='cf0fbaf900fabe0767c84a925064c7e6232d11e6')
-wandb.init(mode="offline", config=conf)
-'''
+#wandb.init(mode="offline", config=conf)
+
 with wandb.init(
-     entity="learning-from-failure", project="fullModel", id="debugRun", config=conf
+     entity="learning-from-failure", project="fullModel", id="LorenzoTry1", config=conf
  ) as run:
     model = lff.LfFTrainer(wandb.config)
     results = model.train()  
-'''
+
 wandb.finish()
