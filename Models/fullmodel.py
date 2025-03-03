@@ -112,11 +112,11 @@ class LfFTrainer:
 
             self.num_classes = 10
             self.train_loader, self.val_loader = create_colored_mnist(
-            data_dir=self.config.data_dir,
+            self.config["data_dir"],
             skew_ratio=0.02,
-            severity=5,
-            num_workers=self.config.num_workers
-            )
+            severity=5
+                )
+            print("ColoredMNIST dataset loaded successfully.")
 
             # Wrap datasets with IdxDataset
             self.train_dataset = IdxDataset(self.train_loader.dataset)
