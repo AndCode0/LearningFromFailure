@@ -5,13 +5,13 @@ from typing import Dict, Any
 
 conf: Dict[str, Any] = {
     # Dataset configuration
-    "dataset_tag": "CelebA",                 # Dataset name (CelebA or ColoredMNIST)
-    "data_dir": "INSERT/PATH/TO/DATA_DIR",   # Root directory for dataset storage
+    "dataset_tag": "ColoredMNIST",                 # Dataset name (CelebA or ColoredMNIST)
+    "data_dir": "",   # Root directory for dataset storage
     "target_attr_idx": 9,                    # BlondHair attribute index for CelebA
     "bias_attr_idx": 20,                     # Male attribute index for CelebA
 
     # Model configuration
-    "model_tag": "ResNet18",                 # Model architecture to use
+    "model_tag": "SimpleConvNet",                 # Model architecture to use
     
     # Training hyperparameters
     "batch_size": 256,                       # Batch size for training and validation
@@ -30,7 +30,7 @@ conf: Dict[str, Any] = {
     # Logging and evaluation
     "valid_freq": 100,                       # Validate every N steps
     "log_freq": 10,                          # Log metrics every N steps
-    "save_model": True,                      # Whether to save the model at the end
+    "save_model": False,                      # Whether to save the model at the end
     "save_dir": "INSERT/PATH/TO/SAVE_DIR",   # Directory to save model weights
     
     # Hardware settings
@@ -38,11 +38,12 @@ conf: Dict[str, Any] = {
 }
 
 wandb.login(key='cf0fbaf900fabe0767c84a925064c7e6232d11e6')
-# with wandb.init(mode="offline", config=conf):
+wandb.init(mode="offline", config=conf)
+'''
 with wandb.init(
      entity="learning-from-failure", project="fullModel", id="debugRun", config=conf
  ) as run:
     model = lff.LfFTrainer(wandb.config)
     results = model.train()  
-
+'''
 wandb.finish()
