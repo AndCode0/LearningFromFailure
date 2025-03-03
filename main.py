@@ -7,7 +7,7 @@ conf: Dict[str, Any] = {
     # Dataset configuration
     "dataset_tag": "ColoredMNIST",                 # Dataset name (CelebA or ColoredMNIST)
     "data_dir": "./Data",                    # Root directory for dataset storage
-    "target_attr_idx": 1,                    # 9 BlondHair attribute index for CelebA, 1 label for cMNIST
+    "target_attr_idx": 0,                    # 9 BlondHair attribute index for CelebA, 1 label for cMNIST
     "bias_attr_idx": 1,                     # 20 Male attribute index for CelebA, 
 
     # Model configuration
