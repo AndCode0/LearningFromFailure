@@ -131,7 +131,7 @@ class LfFTrainer:
             from torchvision.models import resnet18
             # TODO: load weights from our trained resnet
             model = resnet18(weights=None, num_classes=2).to(self.device)
-        elif self.config.dataset_tag == "ColoredMINST":
+        elif self.config.dataset_tag == "ColoredMNIST":
             # TODO: define model
 
             from Models.SimpleConv import SimpleConvNet
