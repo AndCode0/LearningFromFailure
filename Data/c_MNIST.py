@@ -58,7 +58,7 @@ def create_colored_mnist(data_dir, skew_ratio, severity, num_workers=2):
 
     attr_names = ["digit", "color"]
     with open(os.path.join(base_dir, "attr_names.pkl"), "wb") as f:
-        p+ickle.dump(attr_names, f)
+        pickle.dump(attr_names, f)
 
     for split in ["train", "test"]:
         os.makedirs(os.path.join(base_dir, split), exist_ok=True)
