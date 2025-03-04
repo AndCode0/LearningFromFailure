@@ -72,11 +72,11 @@ class ColoredMNIST(Dataset):
         return len(self.images)
 
 
-    def create_colored_mnist(data_dir, skew_ratio, severity, num_workers=2):
-        train_dataset = ColoredMNIST(data_dir, 'train', skew_ratio, severity)
-        valid_dataset = ColoredMNIST(data_dir, 'test', skew_ratio, severity)
+def create_colored_mnist(data_dir, skew_ratio, severity, num_workers=2):
+    train_dataset = ColoredMNIST(data_dir, 'train', skew_ratio, severity)
+    valid_dataset = ColoredMNIST(data_dir, 'test', skew_ratio, severity)
 
-        train_loader = DataLoader(train_dataset, batch_size=256, shuffle=True, num_workers=num_workers, pin_memory=True)
-        valid_loader = DataLoader(valid_dataset, batch_size=256, shuffle=False, num_workers=num_workers, pin_memory=True)
+    train_loader = DataLoader(train_dataset, batch_size=256, shuffle=True, num_workers=num_workers, pin_memory=True)
+    valid_loader = DataLoader(valid_dataset, batch_size=256, shuffle=False, num_workers=num_workers, pin_memory=True)
 
-        return train_loader, valid_loader
+    return train_loader, valid_loader
