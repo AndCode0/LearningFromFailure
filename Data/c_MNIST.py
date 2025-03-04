@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 import torch
 from torchvision import datasets, transforms
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import TensorDataset, DataLoader, Dataset
 from tqdm import tqdm
 
 # Fixed Colors for Each Digit (0-9)
