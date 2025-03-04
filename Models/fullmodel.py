@@ -119,8 +119,8 @@ class LfFTrainer:
             print("ColoredMNIST dataset loaded successfully.")
 
             # Wrap datasets with IdxDataset
-            self.train_dataset = IdxDataset(self.train_loader.dataset)
-            self.valid_dataset = IdxDataset(self.val_loader.dataset)
+            #self.train_dataset = IdxDataset(self.train_loader.dataset)
+            #self.valid_dataset = IdxDataset(self.val_loader.dataset)
             
         else:
             raise NotImplementedError
