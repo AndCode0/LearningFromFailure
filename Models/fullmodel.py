@@ -108,7 +108,7 @@ class LfFTrainer:
             # define train and val datasets and loaders
             # self.num_classes = 10 (?)
             
-            from Data.c_MNIST import ColoredMNIST
+            from Data.c_MNIST import create_colored_mnist
 
             self.num_classes = 10
             self.train_loader, self.val_loader = create_colored_mnist(
