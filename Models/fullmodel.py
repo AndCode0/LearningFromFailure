@@ -113,14 +113,15 @@ class LfFTrainer:
             self.num_classes = 10
             self.train_loader, self.val_loader = create_colored_mnist(
             self.config["data_dir"],
-            skew_ratio=0.02,
-            severity=5
-                )
+            skew_ratio=self.config["skew_ratio"],
+            severity=self.config["severity"],
+            num_workers=self.config["num_workers"]
+            )
             print("ColoredMNIST dataset loaded successfully.")
 
             # Wrap datasets with IdxDataset
-            #self.train_dataset = IdxDataset(self.train_loader.dataset)
-            #self.valid_dataset = IdxDataset(self.val_loader.dataset)
+            self.train_dataset = IdxDataset(self.train_loader.dataset)
+            self.valid_dataset = IdxDataset(self.val_loader.dataset)
             
         else:
             raise NotImplementedError

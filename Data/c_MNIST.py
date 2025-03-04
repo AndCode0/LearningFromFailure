@@ -21,75 +21,62 @@ fixed_colors = torch.tensor([
 ])
 
 
-def apply_colorization(raw_image, severity, mean_color, attribute_label):
-    std_dev = [0.05, 0.02, 0.01, 0.005, 0.002][severity - 1]
-    color = torch.clamp(
-        mean_color[attribute_label][:, None, None] + torch.randn_like(mean_color[attribute_label][:, None, None]) * std_dev,
-        0.0, 1.0
-    )
-    raw_image = raw_image.to(torch.float32).unsqueeze(0)
-    return color * raw_image
+class ColoredMNIST(Dataset):
+    def __init__(self, data_dir, split, skew_ratio, severity):
+        self.data_dir = data_dir
+        self.split = split
+        self.severity = severity
+        self.dataset = datasets.MNIST(data_dir, train=(split == 'train'), download=True, transform=transforms.ToTensor())
+        self.bias_ratio = 1. - skew_ratio if split == 'train' else 0.1
+        self.color_labels = self.generate_attribute_labels(torch.tensor(self.dataset.targets))
+        self.images, self.attrs = self.apply_colorization()
+        self.attr = torch.tensor(self.attrs, dtype=torch.int64)
 
-
-COLORED_MNIST_PROTOCOL = {i: lambda img, s: apply_colorization(img, s, fixed_colors, i) for i in range(10)}
-
-
-def generate_attribute_labels(target_labels, bias_ratio):
-    num_classes = target_labels.max().item() + 1
-    attr_labels = torch.zeros_like(target_labels)
-    for label in range(num_classes):
-        indices = (target_labels == label).nonzero(as_tuple=True)[0]
-        biased_count = int(len(indices) * bias_ratio)
-        unbiased_count = len(indices) - biased_count
-
-        attr_labels[indices[:biased_count]] = label
-        for idx in indices[biased_count:]:
-            random_label = torch.randint(0, num_classes, (1,))
-            while random_label == label:
+    def generate_attribute_labels(self, target_labels):
+        num_classes = target_labels.max().item() + 1
+        attr_labels = torch.zeros_like(target_labels)
+        for label in range(num_classes):
+            indices = (target_labels == label).nonzero(as_tuple=True)[0]
+            biased_count = int(len(indices) * self.bias_ratio)
+            attr_labels[indices[:biased_count]] = label
+            for idx in indices[biased_count:]:
                 random_label = torch.randint(0, num_classes, (1,))
-            attr_labels[idx] = random_label
+                while random_label == label:
+                    random_label = torch.randint(0, num_classes, (1,))
+                attr_labels[idx] = random_label
+        return attr_labels
 
-    return attr_labels
-
-
-def create_colored_mnist(data_dir, skew_ratio, severity, num_workers=2):
-    base_dir = os.path.join(data_dir, "ColoredMNIST")
-    os.makedirs(base_dir, exist_ok=True)
-
-    attr_names = ["digit", "color"]
-    with open(os.path.join(base_dir, "attr_names.pkl"), "wb") as f:
-        pickle.dump(attr_names, f)
-
-    for split in ["train", "test"]:
-        os.makedirs(os.path.join(base_dir, split), exist_ok=True)
-        dataset = datasets.MNIST(data_dir, train=(split == "train"), download=True, transform=transforms.ToTensor())
-        bias_ratio = 1. - skew_ratio if split == "train" else 0.1
-        color_labels = generate_attribute_labels(torch.tensor(dataset.targets), bias_ratio)
-
-        images, attributes = [], []
-        for img, label, color_label in tqdm(zip(dataset.data, dataset.targets, color_labels), total=len(color_labels), leave=False):
-            colored_img = COLORED_MNIST_PROTOCOL[color_label.item()](img, severity)
+    def apply_colorization(self):
+        images, attrs = [], []
+        std_dev = [0.05, 0.02, 0.01, 0.005, 0.002][self.severity - 1]
+        for img, label, color_label in tqdm(zip(self.dataset.data, self.dataset.targets, self.color_labels), total=len(self.color_labels), leave=False):
+            color = torch.clamp(
+                fixed_colors[color_label][:, None, None] + torch.randn_like(fixed_colors[color_label][:, None, None]) * std_dev,
+                0.0, 1.0
+            )
+            img = img.float().unsqueeze(0)
+            colored_img = color * img
             images.append(np.moveaxis(colored_img.numpy(), 0, 2))
-            attributes.append([label.item(), color_label.item()])
+            attrs.append([label.item(), color_label.item()])
+        return np.array(images, dtype=np.float32), attrs
 
-        np.save(os.path.join(base_dir, split, "images.npy"), np.array(images, dtype=np.float32))
-        np.save(os.path.join(base_dir, split, "attrs.npy"), np.array(attributes, dtype=np.int64))
+    def __getitem__(self, idx):
+        img = torch.tensor(self.images[idx]).permute(2, 0, 1)  # Image tensor
+        digit_label = self.attr[idx, 0]  # Digit (target) label
+        color_label = self.attr[idx, 1]  # Color (bias) label
 
-    train_dataset = TensorDataset(
-        torch.tensor(np.load(os.path.join(base_dir, "train", "images.npy"))).permute(0, 3, 1, 2),
-        torch.tensor(np.load(os.path.join(base_dir, "train", "attrs.npy"))[:, 0]),
-        torch.tensor(np.load(os.path.join(base_dir, "train", "attrs.npy"))[:, 1])
-    )
-    train_dataset.attr = torch.cat((train_dataset.tensors[1].unsqueeze(1), train_dataset.tensors[2].unsqueeze(1)), dim=1)
+        return img, (digit_label, color_label)  # Return both labels as a tuple
 
-    valid_dataset = TensorDataset(
-        torch.tensor(np.load(os.path.join(base_dir, "test", "images.npy"))).permute(0, 3, 1, 2),
-        torch.tensor(np.load(os.path.join(base_dir, "test", "attrs.npy"))[:, 0]),
-        torch.tensor(np.load(os.path.join(base_dir, "test", "attrs.npy"))[:, 1])
-    )
-    valid_dataset.attr = torch.cat((valid_dataset.tensors[1].unsqueeze(1), valid_dataset.tensors[2].unsqueeze(1)), dim=1)
 
-    train_loader = DataLoader(train_dataset, batch_size=256, shuffle=True, num_workers=num_workers, pin_memory=True)
-    valid_loader = DataLoader(valid_dataset, batch_size=256, shuffle=False, num_workers=num_workers, pin_memory=True)
+    def __len__(self):
+        return len(self.images)
 
-    return train_loader, valid_loader
+
+    def create_colored_mnist(data_dir, skew_ratio, severity, num_workers=2):
+        train_dataset = ColoredMNIST(data_dir, 'train', skew_ratio, severity)
+        valid_dataset = ColoredMNIST(data_dir, 'test', skew_ratio, severity)
+
+        train_loader = DataLoader(train_dataset, batch_size=256, shuffle=True, num_workers=num_workers, pin_memory=True)
+        valid_loader = DataLoader(valid_dataset, batch_size=256, shuffle=False, num_workers=num_workers, pin_memory=True)
+
+        return train_loader, valid_loader

@@ -10,6 +10,8 @@ conf: Dict[str, Any] = {
     "target_attr_idx": 0,                    # 9 BlondHair attribute index for CelebA, 1 label for cMNIST
     "bias_attr_idx": 1,                     # 20 Male attribute index for CelebA, 
 
+    "skew_ratio": 0.02,
+    "severity": 5,
     # Model configuration
     "model_tag": "SimpleConvNet",                 # Model architecture to use
     
