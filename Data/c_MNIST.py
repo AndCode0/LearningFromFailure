@@ -61,11 +61,11 @@ class ColoredMNIST(Dataset):
         return np.array(images, dtype=np.float32), attrs
 
     def __getitem__(self, idx):
-        img = torch.tensor(self.images[idx]).permute(2, 0, 1)  # Image tensor
-        digit_label = self.attr[idx, 0]  # Digit (target) label
-        color_label = self.attr[idx, 1]  # Color (bias) label
+        img = torch.tensor(self.images[idx]).permute(2, 0, 1)
+        digit_label = self.attr[idx, 0]  # First element is the digit label
+        color_label = self.attr[idx, 1]  # Second element is the color label
+        return idx, img, (digit_label, color_label)
 
-        return img, (digit_label, color_label)  # Return both labels as a tuple
 
 
     def __len__(self):
