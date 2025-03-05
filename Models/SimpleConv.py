@@ -6,7 +6,7 @@ class SimpleConvNet(nn.Module):
     Simple convolutional neural network for image classification.
     Compatible with LfF pipeline.
     '''
-    def __init__(self, num_classes=10, kernel_size=5, padding=3, feature_pos='logits', use_pattern_norm=False):
+    def __init__(self, num_classes=10, kernel_size=5, feature_pos='logits', use_pattern_norm=False):
         '''
         Model initializer.
         ------------------------------------------------------------------------
@@ -18,7 +18,7 @@ class SimpleConvNet(nn.Module):
         ------------------------------------------------------------------------
         '''
         super(SimpleConvNet, self).__init__()
-
+        padding = kernel_size // 2
         layers = [
             nn.Conv2d(3, 16, kernel_size=kernel_size, padding=padding),
             nn.BatchNorm2d(16),
@@ -35,6 +35,13 @@ class SimpleConvNet(nn.Module):
         ]
         self.extracter = nn.Sequential(*layers)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
         if use_pattern_norm:
             self.avgpool = nn.Sequential(self.avgpool, self.pattern_norm())
         self.fc = nn.Linear(128, num_classes)
