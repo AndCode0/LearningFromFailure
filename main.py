@@ -11,7 +11,7 @@ conf: Dict[str, Any] = {
     "bias_attr_idx": 1,                     # 20 Male attribute index for CelebA, 
 
     "skew_ratio": 0.02,
-    "severity": 5,
+    "severity": 4,
     # Model configuration
     "model_tag": "SimpleConvNet",                 # Model architecture to use
     

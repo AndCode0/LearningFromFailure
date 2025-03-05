@@ -6,7 +6,7 @@ class SimpleConvNet(nn.Module):
     Simple convolutional neural network for image classification.
     Compatible with LfF pipeline.
     '''
-    def __init__(self, num_classes=10, kernel_size=7, padding=3, feature_pos='logits', use_pattern_norm=False):
+    def __init__(self, num_classes=10, kernel_size=5, padding=2, feature_pos='logits', use_pattern_norm=False):
         '''
         Model initializer.
         ------------------------------------------------------------------------
