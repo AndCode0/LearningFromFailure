@@ -18,7 +18,7 @@ conf: Dict[str, Any] = {
     # Training hyperparameters
     "batch_size": 256,                       # Batch size for training and validation
     "num_steps": 10000,                      # Total number of training steps | original: (636 * 200)
-    "num_workers": 0,                        # Number of worker processes for data loading
+    "num_workers": 1,                        # Number of worker processes for data loading
     
     # Optimizer settings
     "optimizer_tag": "Adam",                 # Optimizer type
@@ -43,7 +43,7 @@ wandb.login(key='cf0fbaf900fabe0767c84a925064c7e6232d11e6')
 #wandb.init(mode="offline", config=conf)
 
 with wandb.init(
-     entity="learning-from-failure", project="fullModel", id="LorenzoTry1", config=conf
+     entity="learning-from-failure", project="SimpleConv", id="sev4_kernel5_pad_3", config=conf
  ) as run:
     model = lff.LfFTrainer(wandb.config)
     results = model.train()  
