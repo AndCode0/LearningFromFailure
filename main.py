@@ -17,20 +17,20 @@ conf: Dict[str, Any] = {
     
     # Training hyperparameters
     "batch_size": 256,                       # Batch size for training and validation
-    "num_steps": 10000,                      # Total number of training steps | original: (636 * 200)
+    "num_steps": 235*100,                      # Total number of training steps | CelebA original: (636 * 200), CMNIST: (235*100)
     "num_workers": 1,                        # Number of worker processes for data loading
     
     # Optimizer settings
     "optimizer_tag": "Adam",                 # Optimizer type
     "learning_rate": 0.001,                  # Learning rate for optimizer
-    "weight_decay": 1e-4,                    # Weight decay for regularization
+    "weight_decay": 0.0,                    # Weight decay for regularization
     
     # LfF-specific parameters
     "gce_q": 0.7,                            # q parameter for Generalized Cross Entropy
     "ema_alpha": 0.9,                        # Alpha parameter for EMA loss tracking
     
     # Logging and evaluation
-    "valid_freq": 100,                       # Validate every N steps
+    "valid_freq": 235,                       # Validate every N steps
     "log_freq": 10,                          # Log metrics every N steps
     "save_model": True,                      # Whether to save the model at the end
     "save_dir": "./Results",   # Directory to save model weights
