@@ -17,7 +17,7 @@ conf: Dict[str, Any] = {
     
     # Training hyperparameters
     "batch_size": 256,                       # Batch size for training and validation
-    "num_steps": 235*100,                      # Total number of training steps | CelebA original: (636 * 200), CMNIST: (235*100)
+    "num_steps": 235*20,                      # Total number of training steps | CelebA original: (636 * 200), CMNIST: (235*100)
     "num_workers": 1,                        # Number of worker processes for data loading
     
     # Optimizer settings
