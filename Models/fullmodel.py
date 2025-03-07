@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import time
 from typing import Dict, Any, Tuple, Union, Generator
 from torch.utils.data import DataLoader
 from torchvision import transforms as T
@@ -330,6 +331,7 @@ class LfFTrainer:
 
     def train(self) -> Dict[str, Any]:
         """Main training loop"""
+        start_time = time.time()  # Start timer
         num_updated = 0
         valid_attrwise_accs_list = []
 
@@ -371,6 +373,8 @@ class LfFTrainer:
                 # Reset counter
                 num_updated = 0
 
+        total_time = time.time() - start_time
+        
         # Save final model
         if self.config.save_model:
             os.makedirs(self.config.save_dir, exist_ok=True)
