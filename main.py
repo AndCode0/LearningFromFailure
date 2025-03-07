@@ -17,7 +17,7 @@ conf: Dict[str, Any] = {
     
     # Training hyperparameters
     "batch_size": 256,                       # Batch size for training and validation
-    "num_steps": 235*20,                      # Total number of training steps | CelebA original: (636 * 200), CMNIST: (235*100)
+    "num_steps": 235*50,                      # Total number of training steps | CelebA original: (636 * 200), c_MNIST orig: (235*100)
     "num_workers": 1,                        # Number of worker processes for data loading
     
     # Optimizer settings
@@ -43,7 +43,7 @@ wandb.login(key='cf0fbaf900fabe0767c84a925064c7e6232d11e6')
 #wandb.init(mode="offline", config=conf)
 
 with wandb.init(
-     entity="learning-from-failure", project="SimpleConv_nodecay", id="run_nodecay", config=conf
+     entity="learning-from-failure", project="SimpleConv_nodecay", id="run_nodecay_50ep", config=conf
  ) as run:
     model = lff.LfFTrainer(wandb.config)
     results = model.train()  
