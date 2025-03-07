@@ -43,7 +43,7 @@ wandb.login(key='cf0fbaf900fabe0767c84a925064c7e6232d11e6')
 #wandb.init(mode="offline", config=conf)
 
 with wandb.init(
-     entity="learning-from-failure", project="SimpleConv", id="sev4_kernel5_pad_3", config=conf
+     entity="learning-from-failure", project="SimpleConv_nodecay", id="run_nodecay", config=conf
  ) as run:
     model = lff.LfFTrainer(wandb.config)
     results = model.train()  
