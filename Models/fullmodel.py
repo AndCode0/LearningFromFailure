@@ -99,11 +99,6 @@ class LfFTrainer:
             )
 
         elif self.config["dataset_tag"] == "ColoredMNIST":
-            # TODO: add Lorenzo and Francesco's part here
-            # import dataset
-            # define train and val datasets and loaders
-            # self.num_classes = 10 (?)
-
             from Data.c_MNIST import create_colored_mnist
 
             self.num_classes = 10
@@ -133,9 +128,9 @@ class LfFTrainer:
                 for param in model.parameters():
                     param.requires_grad = False
                 # Replace final layer and make it trainable
-                model.fc = nn.Linear(model.fc.in_features, out_features=2)
+                model.fc = nn.Linear(model.fc.in_features, out_features=self.num_classes)
             elif self.config.weights is None:
-                model = resnet18(weights=None, num_classes=2)
+                model = resnet18(weights=None, num_classes=self.num_classes)
             else:
                 # load dictionary saved from a previous training
                 checkpoint = torch.load(self.config.weights)  # , map_location=device
@@ -382,12 +377,6 @@ class LfFTrainer:
     ) -> Generator[Tuple[torch.Tensor, torch.Tensor, torch.Tensor], None, None]:
         """
         Generator that yields batches from a dataloader indefinitely
-
-        Args:
-            dataloader: DataLoader to iterate over
-
-        Yields:
-            Batches from the dataloader, restarting when exhausted
         """
         while True:
             for batch in dataloader:
