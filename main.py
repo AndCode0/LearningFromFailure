@@ -1,6 +1,7 @@
 import wandb
 import torch
 import Models.fullmodel as lff
+from util import set_seed
 from typing import Dict, Any
 
 conf: Dict[str, Any] = {
@@ -38,6 +39,9 @@ conf: Dict[str, Any] = {
     # Hardware settings
     "device": "cuda" if torch.cuda.is_available() else "cpu", # Device to use for training
 }
+
+
+set_seed(42)
 
 wandb.login(key='cf0fbaf900fabe0767c84a925064c7e6232d11e6')
 #wandb.init(mode="offline", config=conf)

@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms as T
 from tqdm import tqdm
 import wandb
+import copy
 
 from util import (
     GeneralizedCELoss,
@@ -140,7 +141,7 @@ class LfFTrainer:
 
             model = SimpleConvNet(num_classes=self.num_classes).to(self.device)
             self.model_b = model.to(self.device)
-            self.model_d = model.to(self.device)
+            self.model_d = copy.deepcopy(model).to(self.device)
 
          
         else:
