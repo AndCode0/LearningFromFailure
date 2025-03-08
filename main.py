@@ -1,19 +1,21 @@
 import wandb
 import torch
 import Models.fullmodel as lff
+from util import set_seed
 from typing import Dict, Any
 from util import set_seed
 import os
 
 config: Dict[str, Any] = dict(
     # Dataset configuration
-    dataset_tag = "CelebA",              # Dataset name (CelebA or ColoredMNIST)
+    dataset_tag = "CelebA",              # CelebA | ColoredMNIST
     data_dir = "INSERT/PATH/TO/DATA_DIR",# Root directory for dataset storage
-    target_attr_idx = 9,                 # BlondHair attribute index for CelebA
-    bias_attr_idx = 20,                  # Male attribute index for CelebA
-
+    target_attr_idx = 9,                 # BlondHair (CelebA): 9 | label (cMNST): 0 
+    bias_attr_idx = 20,                  # Male (CelebA): 20 | color (cMNST): 1 
+    skew_ratio = 0.02,
+    severity = 2,
     # Model configuration
-    model_tag = "ResNet18",              # Model architecture to use
+    model_tag = "ResNet18",              # Model architecture:  ResNet18 | SimpleConvNet
     weights = None,                      # 'PATH/TO/WEIGHTS' | None | pretrained
 
     # Training hyperparameters

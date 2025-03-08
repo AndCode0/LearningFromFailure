@@ -27,6 +27,11 @@ class IdxDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx: int) -> Tuple[int, Any, Any]:
         img, target = self.dataset[idx]
+
+        if isinstance(target, tuple):
+            # Ensure both labels (digit and color) are returned as tensor
+            target = torch.tensor(target)
+        
         return idx, img, target
         
 class EMA:

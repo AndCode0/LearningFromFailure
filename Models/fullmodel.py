@@ -1,19 +1,13 @@
 import torch
 import torch.nn as nn
+import time
 from typing import Dict, Any, Tuple, Union, Generator
 from torch.utils.data import DataLoader
 from torchvision import models, transforms as T
 from tqdm import tqdm
 import wandb
 import copy
-
-
-from util import (
-    GeneralizedCELoss,
-    IdxDataset,
-    EMA,
-    MultiDimAverageMeter
-)
+from util import GeneralizedCELoss, IdxDataset, EMA, MultiDimAverageMeter
 import os
 
 
@@ -22,7 +16,7 @@ class LfFTrainer:
     def __init__(self, config: dict) -> None:
         """
         Initialize Learning from Failure trainer.
-        
+
         Args:
             config: Configuration object containing training parameters
         """
@@ -104,12 +98,27 @@ class LfFTrainer:
                 pin_memory=True,
             )
 
-        elif self.config["dataset"] == "ColoredMNIST":
+        elif self.config["dataset_tag"] == "ColoredMNIST":
             # TODO: add Lorenzo and Francesco's part here
             # import dataset
             # define train and val datasets and loaders
             # self.num_classes = 10 (?)
-            raise NotImplementedError
+
+            from Data.c_MNIST import create_colored_mnist
+
+            self.num_classes = 10
+            self.train_loader, self.val_loader = create_colored_mnist(
+                self.config["data_dir"],
+                skew_ratio=self.config["skew_ratio"],
+                severity=self.config["severity"],
+                num_workers=self.config["num_workers"],
+            )
+            print("ColoredMNIST dataset loaded successfully.")
+
+            # Wrap datasets with IdxDataset
+            self.train_dataset = IdxDataset(self.train_loader.dataset)
+            self.valid_dataset = IdxDataset(self.val_loader.dataset)
+
         else:
             raise NotImplementedError
 
@@ -117,25 +126,26 @@ class LfFTrainer:
         """Initialize biased and debiased models"""
         if self.config.dataset_tag == "CelebA":
             from torchvision.models import resnet18
-            match self.config.weights:
-                case 'pretrained':
-                    model = resnet18(weights=models.ResNet18_Weights.DEFAULT)
-                    # Freeze base layers
-                    for param in model.parameters():
-                        param.requires_grad = False
-                    # Replace final layer and make it trainable
-                    model.fc = nn.Linear(model.fc.in_features, out_features=2)
-                case None:
-                    model = resnet18(weights=None)
-                case _:
-                        # load dictionary saved from the vanilla model's training
-                        checkpoint = torch.load(self.config.weights) # , map_location=device
-                        # load weights
-                        model.load_state_dict(checkpoint['model'])
+
+            if self.config.weights == "pretrained":
+                model = resnet18(weights=models.ResNet18_Weights.DEFAULT)
+                # Freeze base layers
+                for param in model.parameters():
+                    param.requires_grad = False
+                # Replace final layer and make it trainable
+                model.fc = nn.Linear(model.fc.in_features, out_features=2)
+            elif self.config.weights is None:
+                model = resnet18(weights=None, num_classes=2)
+            else:
+                # load dictionary saved from a previous training
+                checkpoint = torch.load(self.config.weights)  # , map_location=device
+                # load weights
+                model.load_state_dict(checkpoint["model"])
 
         elif self.config.dataset_tag == "ColoredMINST":
-            # TODO: define model
-            raise NotImplementedError
+            from Models.SimpleConv import SimpleConvNet
+            model = SimpleConvNet(num_classes=self.num_classes).to(self.device)
+
         else:
             raise ValueError(f"Dataset {self.config.dataset_tag} not supported")
 
@@ -155,24 +165,24 @@ class LfFTrainer:
                 weight_decay=self.config.weight_decay,
             )
 
-        elif self.config.optimizer_tag == 'SGD':
+        elif self.config.optimizer_tag == "SGD":
             self.optimizer_b = torch.optim.SGD(
                 self.model_b.parameters(),
                 lr=self.config.learning_rate,
                 momentum=self.config.momentum,
-                weight_decay=self.config.weight_decay
-            )    
+                weight_decay=self.config.weight_decay,
+            )
             self.optimizer_d = torch.optim.SGD(
                 self.model_d.parameters(),
                 lr=self.config.learning_rate,
                 momentum=self.config.momentum,
-                weight_decay=self.config.weight_decay
-            )    
+                weight_decay=self.config.weight_decay,
+            )
         else:
             raise NotImplementedError(
                 f"Optimizer {self.config.optimizer_tag} not implemented"
             )
-        
+
         # learning rate scheduler
         if self.config["lr_scheduler"]:
             self.scheduler_b = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -182,7 +192,9 @@ class LfFTrainer:
                 self.optimizer_d, mode="min", factor=0.1, patience=5
             )
 
-    def train_step(self, batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> Tuple[Dict[str, float], float]:
+    def train_step(
+        self, batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+    ) -> Tuple[Dict[str, float], float]:
         """Perform a single training step"""
         index, data, attr = batch
         data = data.to(self.device)
@@ -266,7 +278,6 @@ class LfFTrainer:
             "loss_std/d_ema": self.sample_loss_ema_d.parameter.std().item(),
         }
 
-
         if aligned_mask.any():
             metrics.update(
                 {
@@ -295,7 +306,9 @@ class LfFTrainer:
 
         # Track number of updated samples (weighted by average importance)
         # TODO: data.size(0) == batch size, no need to calculate it every time. Da testare
-        batch_updated = loss_weight.mean().item() * data.size(0)  # self.config.batch_size
+        batch_updated = loss_weight.mean().item() * data.size(
+            0
+        )  # self.config.batch_size
         return metrics, batch_updated
 
     def evaluate(self, model: nn.Module) -> Dict[str, Union[float, torch.Tensor]]:
@@ -347,14 +360,16 @@ class LfFTrainer:
             "acc/valid_skewed": skewed_acc,
             "attrwise_accs": accs,
         }
-    
-    def _infinite_loader(self, dataloader: DataLoader) -> Generator[Tuple[torch.Tensor, torch.Tensor, torch.Tensor], None, None]:
+
+    def _infinite_loader(
+        self, dataloader: DataLoader
+    ) -> Generator[Tuple[torch.Tensor, torch.Tensor, torch.Tensor], None, None]:
         """
         Generator that yields batches from a dataloader indefinitely
-        
+
         Args:
             dataloader: DataLoader to iterate over
-            
+
         Yields:
             Batches from the dataloader, restarting when exhausted
         """
@@ -376,10 +391,10 @@ class LfFTrainer:
             metrics, batch_updated = self.train_step(batch)
             num_updated += batch_updated
 
-            if step % self.config.log_freq == 0:
+            if step % self.config.log_freq == 0 and step > 0:
                 wandb.log(metrics, step=step)
 
-            if step % self.config.valid_freq == 0 and step>0:
+            if step % self.config.valid_freq == 0 and step > 0:
                 b_metrics = self.evaluate(self.model_b)
                 d_metrics = self.evaluate(self.model_d)
 
@@ -428,7 +443,7 @@ class LfFTrainer:
                     ),
                 },
                 model_path,
-            )       
+            )
 
             wandb.save(model_path)
 
