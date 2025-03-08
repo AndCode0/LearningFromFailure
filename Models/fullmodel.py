@@ -2,9 +2,11 @@ import torch
 import torch.nn as nn
 from typing import Dict, Any, Tuple, Union, Generator
 from torch.utils.data import DataLoader
-from torchvision import transforms as T
+from torchvision import models, transforms as T
 from tqdm import tqdm
 import wandb
+import copy
+
 
 from util import (
     GeneralizedCELoss,
@@ -115,8 +117,22 @@ class LfFTrainer:
         """Initialize biased and debiased models"""
         if self.config.dataset_tag == "CelebA":
             from torchvision.models import resnet18
-            # TODO: load weights from our trained resnet
-            model = resnet18(weights=None, num_classes=2).to(self.device)
+            match self.config.weights:
+                case 'pretrained':
+                    model = resnet18(weights=models.ResNet18_Weights.DEFAULT)
+                    # Freeze base layers
+                    for param in model.parameters():
+                        param.requires_grad = False
+                    # Replace final layer and make it trainable
+                    model.fc = nn.Linear(model.fc.in_features, out_features=2)
+                case None:
+                    model = resnet18(weights=None)
+                case _:
+                        # load dictionary saved from the vanilla model's training
+                        checkpoint = torch.load(self.config.weights) # , map_location=device
+                        # load weights
+                        model.load_state_dict(checkpoint['model'])
+
         elif self.config.dataset_tag == "ColoredMINST":
             # TODO: define model
             raise NotImplementedError
@@ -125,7 +141,7 @@ class LfFTrainer:
 
         # Initialize biased and debiased models
         self.model_b = model.to(self.device)
-        self.model_d = model.to(self.device)
+        self.model_d = copy.deepcopy(model).to(self.device)
 
         if self.config.optimizer_tag == "Adam":
             self.optimizer_b = torch.optim.Adam(
@@ -138,9 +154,32 @@ class LfFTrainer:
                 lr=self.config.learning_rate,
                 weight_decay=self.config.weight_decay,
             )
+
+        elif self.config.optimizer_tag == 'SGD':
+            self.optimizer_b = torch.optim.SGD(
+                self.model_b.parameters(),
+                lr=self.config.learning_rate,
+                momentum=self.config.momentum,
+                weight_decay=self.config.weight_decay
+            )    
+            self.optimizer_d = torch.optim.SGD(
+                self.model_d.parameters(),
+                lr=self.config.learning_rate,
+                momentum=self.config.momentum,
+                weight_decay=self.config.weight_decay
+            )    
         else:
             raise NotImplementedError(
                 f"Optimizer {self.config.optimizer_tag} not implemented"
+            )
+        
+        # learning rate scheduler
+        if self.config["lr_scheduler"]:
+            self.scheduler_b = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                self.optimizer_b, mode="min", factor=0.1, patience=5
+            )
+            self.scheduler_d = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                self.optimizer_d, mode="min", factor=0.1, patience=5
             )
 
     def train_step(self, batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> Tuple[Dict[str, float], float]:
@@ -182,9 +221,26 @@ class LfFTrainer:
         # Calculate importance weights
         loss_weight = loss_b / (loss_b + loss_d + 1e-8)
 
-        # Final losses for optimization
         loss_b_update = self.bias_criterion(logit_b, label)
         loss_d_update = self.criterion(logit_d, label) * loss_weight.to(self.device)
+
+        # NOTE: The following should be equivalent to
+        # ---- Update biased model
+        # self.optimizer_b.zero_grad()
+        # loss_b_update = self.bias_criterion(logit_b, label)
+        # loss_b_mean = loss_b_update.mean()
+        # loss_b_mean.backward()
+        # self.optimizer_b.step()
+
+        # ---- Update debiased model
+        # self.optimizer_d.zero_grad()
+        # loss_d_update = self.criterion(logit_d, label) * loss_weight.to(self.device)
+        # loss_d_mean = loss_d_update.mean()
+        # loss_d_mean.backward()
+        # self.optimizer_d.step()
+        #
+        # since ADAM is storing adaptive learning parameters, if the two losses have differents smoothness
+        # it might struggle to pick parameters that work for both
 
         loss = loss_b_update.mean() + loss_d_update.mean()
 
@@ -209,6 +265,7 @@ class LfFTrainer:
             "loss_variance/d_ema": self.sample_loss_ema_d.parameter.var().item(),
             "loss_std/d_ema": self.sample_loss_ema_d.parameter.std().item(),
         }
+
 
         if aligned_mask.any():
             metrics.update(
@@ -239,7 +296,6 @@ class LfFTrainer:
         # Track number of updated samples (weighted by average importance)
         # TODO: data.size(0) == batch size, no need to calculate it every time. Da testare
         batch_updated = loss_weight.mean().item() * data.size(0)  # self.config.batch_size
-        # TODO: log loss_variance/ (b_ema | d_ema)
         return metrics, batch_updated
 
     def evaluate(self, model: nn.Module) -> Dict[str, Union[float, torch.Tensor]]:
@@ -323,7 +379,7 @@ class LfFTrainer:
             if step % self.config.log_freq == 0:
                 wandb.log(metrics, step=step)
 
-            if step % self.config.valid_freq == 0:
+            if step % self.config.valid_freq == 0 and step>0:
                 b_metrics = self.evaluate(self.model_b)
                 d_metrics = self.evaluate(self.model_d)
 
@@ -353,13 +409,18 @@ class LfFTrainer:
         if self.config.save_model:
             os.makedirs(self.config.save_dir, exist_ok=True)
             model_path = os.path.join(
-                self.config.save_dir, f"{wandb.run.name}_debiased_model.pt"
+                self.config.save_dir, f"{wandb.run.name}__models.pt"
             )
+
             torch.save(
                 {
                     "step": step,
-                    "state_dict": self.model_d.state_dict(),
-                    "optimizer": self.optimizer_d.state_dict(),
+                    # debiased model
+                    "state_dict_d": self.model_d.state_dict(),
+                    "optimizer_d": self.optimizer_d.state_dict(),
+                    # biased model
+                    "state_dict_b": self.model_b.state_dict(),
+                    "optimizer_b": self.optimizer_b.state_dict(),
                     "valid_attrwise_accs": (
                         torch.stack(valid_attrwise_accs_list)
                         if valid_attrwise_accs_list
@@ -367,7 +428,7 @@ class LfFTrainer:
                     ),
                 },
                 model_path,
-            )
+            )       
 
             wandb.save(model_path)
 

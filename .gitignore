@@ -1,6 +1,8 @@
 # tff-specific
 Mine.py
 rn.py
+wandb/
+.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

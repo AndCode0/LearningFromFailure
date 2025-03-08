@@ -79,3 +79,13 @@ class MultiDimAverageMeter:
     def get_mean(self) -> torch.Tensor:
         # Return mean values across all dimensions
         return self.sums / (self.counts + 1e-8)
+
+import random
+import numpy as np   
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
