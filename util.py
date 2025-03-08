@@ -86,7 +86,8 @@ class MultiDimAverageMeter:
         return self.sums / (self.counts + 1e-8)
 
 import random
-import numpy as np   
+import numpy as np
+   
 def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)

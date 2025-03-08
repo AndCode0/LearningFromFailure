@@ -141,6 +141,22 @@ class LfFTrainer:
                 checkpoint = torch.load(self.config.weights)  # , map_location=device
                 # load weights
                 model.load_state_dict(checkpoint["model"])
+            match self.config.weights:
+                case 'pretrained':
+                    model = resnet18(weights=models.ResNet18_Weights.DEFAULT)
+                    # Freeze base layers
+                    for param in model.parameters():
+                        param.requires_grad = False
+                    # Replace final layer and make it trainable
+                    model.fc = nn.Linear(model.fc.in_features, out_features=2)
+                    nn.init.kaiming_normal_(model.fc.weight)
+                case None:
+                    model = resnet18(weights=None)
+                case _:
+                        # load dictionary saved from the vanilla model's training
+                        checkpoint = torch.load(self.config.weights) # , map_location=device
+                        # load weights
+                        model.load_state_dict(checkpoint['model'])
 
         elif self.config.dataset_tag == "ColoredMINST":
             from Models.SimpleConv import SimpleConvNet
@@ -415,6 +431,28 @@ class LfFTrainer:
                         / self.config.valid_freq,
                     },
                     step=step,
+                )
+
+                if self.config.save_model:
+                    model_path = os.path.join(
+                    self.config.save_dir, f"{wandb.run.name}__models.pt"
+                    )   
+                    torch.save(
+                    {
+                        "step": step,
+                        # debiased model
+                        "state_dict_d": self.model_d.state_dict(),
+                        "optimizer_d": self.optimizer_d.state_dict(),
+                        # biased model
+                        "state_dict_b": self.model_b.state_dict(),
+                        "optimizer_b": self.optimizer_b.state_dict(),
+                        "valid_attrwise_accs": (
+                            torch.stack(valid_attrwise_accs_list)
+                            if valid_attrwise_accs_list
+                            else None
+                        ),
+                    },
+                    model_path,
                 )
 
                 # Reset counter

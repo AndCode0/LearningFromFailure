@@ -13,7 +13,7 @@ class Trainer:
     def __init__(self, config):
         self.config = config
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+        print(f'device: {self.device}')
         self.attr_indices = {
             "BlondHair": 9,  # Target attribute for hair color
             "HeavyMakeup": 18,  # Alternative target attribute

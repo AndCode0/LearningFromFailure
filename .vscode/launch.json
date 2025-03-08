@@ -8,7 +8,7 @@
             "name": "resnet Debug",
             "type": "debugpy",
             "request": "launch",
-            "module": "Models.VanillaResNet.resnet"
+            "module": "Models.Vanilla.rn"
         },
         {
             "name": "full model Debug",
