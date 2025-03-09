@@ -472,7 +472,7 @@ class LfFTrainer:
                 model_path,
             )
 
-            wandb.save(model_path)
+            wandb.save(model_path, policy="end")
 
         return {
             "model_d": self.model_d,

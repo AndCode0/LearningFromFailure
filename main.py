@@ -16,7 +16,7 @@ config: Dict[str, Any] = dict(
     severity = 2,
     # Model configuration
     model_tag = "ResNet18",              # Model architecture:  ResNet18 | SimpleConvNet
-    weights = None,                      # 'PATH/TO/WEIGHTS' | None | pretrained
+    weights = None,                      # 'PATH/TO/WEIGHTS' | None | 'pretrained'
 
     # Training hyperparameters
     batch_size = 256,                     # Batch size for training and validation
@@ -24,8 +24,8 @@ config: Dict[str, Any] = dict(
     num_workers = 0,                      # Number of worker processes for data loading
 
     # Optimizer settings
-    optimizer_tag = "Adam",               # Optimizer type
-    learning_rate = 0.001,                # Learning rate for optimizer
+    optimizer_tag = "Adam",               # Optimizer type: 'Adam' | 'SGD'
+    learning_rate = 1e-4,                 # Learning rate for optimizer
     weight_decay = 1e-4,                  # Weight decay for regularization
 
     # LfF-specific parameters
