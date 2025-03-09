@@ -153,7 +153,7 @@ class LfFTrainer:
                         # load weights
                         model.load_state_dict(checkpoint['model'])
 
-        elif self.config.dataset_tag == "ColoredMINST":
+        elif self.config["dataset_tag"] == "ColoredMINST":
             from Models.SimpleConv import SimpleConvNet
             model = SimpleConvNet(num_classes=self.num_classes).to(self.device)
 

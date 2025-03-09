@@ -62,7 +62,7 @@ class ColoredMNIST(Dataset):
 
     def __getitem__(self, idx):
         img = torch.tensor(self.images[idx]).permute(2, 0, 1)
-        attr = torch.tensor(self.attrs[idx], dtype=np.int64)  # Convert list to tensor
+        attr = torch.tensor(self.attrs[idx])  # Convert list to tensor
         return idx, img, attr
 
 
