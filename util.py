@@ -95,3 +95,36 @@ def set_seed(seed):
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
+
+def print_dict_as_table(data_dict):
+    # Get the keys and values
+    keys = list(data_dict.keys())
+    values = [str(round(data_dict[k], 2)) + "%" for k in keys]
+    
+    # Find the maximum width needed for keys and values
+    key_width = max(len(key) for key in keys)
+    val_width = max(len(val) for val in values)
+    
+    # Total width of each cell (add padding)
+    cell_width_key = key_width + 4
+    cell_width_val = val_width + 4
+    
+    # Calculate total table width
+    total_width = cell_width_key + cell_width_val + 1
+    
+    # Print the table header
+    print("-" * total_width)
+    
+    # Print first row (first two entries)
+    print(f"| {keys[0]:<{key_width + 2}} | {values[0]:^{val_width + 2}} |")
+    print(f"| {keys[1]:<{key_width + 2}} | {values[1]:^{val_width + 2}} |")
+    
+    # Print middle separator
+    print("-" * total_width)
+    
+    # Print second row (last two entries)
+    print(f"| {keys[2]:<{key_width + 2}} | {values[2]:^{val_width + 2}} |")
+    print(f"| {keys[3]:<{key_width + 2}} | {values[3]:^{val_width + 2}} |")
+    
+    # Print the table footer
+    print("-" * total_width) 

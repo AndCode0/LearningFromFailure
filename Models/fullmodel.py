@@ -110,7 +110,6 @@ class LfFTrainer:
             )
             print("ColoredMNIST dataset loaded successfully.")
 
-            # Wrap datasets with IdxDataset
             self.train_dataset = IdxDataset(self.train_loader.dataset)
             self.valid_dataset = IdxDataset(self.val_loader.dataset)
 
@@ -136,22 +135,21 @@ class LfFTrainer:
                 checkpoint = torch.load(self.config.weights)  # , map_location=device
                 # load weights
                 model.load_state_dict(checkpoint["model"])
-            match self.config.weights:
-                case 'pretrained':
-                    model = resnet18(weights=models.ResNet18_Weights.DEFAULT)
-                    # Freeze base layers
-                    for param in model.parameters():
-                        param.requires_grad = False
-                    # Replace final layer and make it trainable
-                    model.fc = nn.Linear(model.fc.in_features, out_features=2)
-                    nn.init.kaiming_normal_(model.fc.weight)
-                case None:
-                    model = resnet18(weights=None)
-                case _:
-                        # load dictionary saved from the vanilla model's training
-                        checkpoint = torch.load(self.config.weights) # , map_location=device
-                        # load weights
-                        model.load_state_dict(checkpoint['model'])
+            if self.config.weights == 'pretrained':
+                model = resnet18(weights=models.ResNet18_Weights.DEFAULT)
+                # Freeze base layers
+                for param in model.parameters():
+                    param.requires_grad = False
+                # Replace final layer and make it trainable
+                model.fc = nn.Linear(model.fc.in_features, out_features=2)
+                nn.init.kaiming_normal_(model.fc.weight)
+            if self.config.weights is None:
+                model = resnet18(weights=None)
+            else:
+                # load dictionary saved from the vanilla model's training
+                checkpoint = torch.load(self.config.weights) # , map_location=device
+                # load weights
+                model.load_state_dict(checkpoint['model'])
 
         elif self.config["dataset_tag"] == "ColoredMNIST":
             from Models.SimpleConv import SimpleConvNet
@@ -274,6 +272,9 @@ class LfFTrainer:
         self.optimizer_d.step()
 
         # Prepare metrics for logging
+        # NOTE: aligned here and in the rest of the code means label == bias_label
+        #       if the label & bias_label are negatively correlated then the skewed
+        #       will be the labels aligned with the bias and vice versa
         aligned_mask = label == bias_label
         skewed_mask = ~aligned_mask
         aligned_mask_cpu = aligned_mask.cpu()
@@ -357,6 +358,7 @@ class LfFTrainer:
         accs = attrwise_acc_meter.get_mean()
 
         # Calculate aligned and skewed accuracies
+    
         eye_tsr = torch.eye(attr_dims[0]).long()
 
         aligned_acc = accs[eye_tsr == 1].mean().item() * 100
