@@ -212,9 +212,6 @@ class Trainer:
 def main():
     parser = argparse.ArgumentParser(description="Wandb setting")
     parser.add_argument(
-        "--sweep", action="store_true", help="Perform a parameter sweep"
-    )
-    parser.add_argument(
         "-m",
         "--mode",
         type=str,
@@ -225,8 +222,7 @@ def main():
 
     args = parser.parse_args()
 
-    if not args.sweep:
-        config = dict(
+    config = dict(
             data_dir="PATH\\TO\\DATA_DIR",
             output_dir="PATH\\TO\\OUTPUT_DIR",
             num_workers=2,
@@ -239,46 +235,20 @@ def main():
             epochs=5,
         )
 
-        wandb.login(key="INSERISCI WANDB_KEY")
-        with wandb.init(
-            entity="learning-from-failure",
-            project="resnet",
-            id="debugRun",
-            name=f"resnet18_from_scratch_{config['target_attr']}", # Name of the run
-            config=config,
-            mode=args.mode,
-        ):
-            # with wandb.init(entity="learning-from-failure", project="resnet", id="debugRun", config=config): #vars(args)
-            trainer = Trainer(wandb.config)
-            trainer.train()
-            wandb.finish()
-    else:
+    wandb.login(key="INSERISCI WANDB_KEY")
+    with wandb.init(
+        entity="learning-from-failure",
+        project="resnet",
+        id="debugRun",
+        name=f"resnet18_from_scratch_{config['target_attr']}", # Name of the run
+        config=config,
+        mode=args.mode,
+    ):
+        # with wandb.init(entity="learning-from-failure", project="resnet", id="debugRun", config=config): #vars(args)
+        trainer = Trainer(wandb.config)
+        trainer.train()
+        wandb.finish()
 
-        def sweep_train(config=None):
-            with wandb.init(config=config):
-                config = wandb.config
-                trainer = Trainer(config)
-                trainer.train()
-
-        # For sweep
-        sweep_config = dict(
-            method="random",
-            metric=dict(name="val/accuracy", goal="maximize"),
-            parameters=dict(
-                learning_rate=dict(min=1e-4, max=1e-3),
-                batch_size=dict(values=[128, 256]),
-                weight_decay=dict(values=[1e-4, 1e-3]),
-                optimizer=dict(values=["Adam", "AdamW"]),
-                target_attr=dict(value="BlondHair"),
-                epochs=dict(value=5),
-                lr_scheduler=False,
-                data_dir=dict(value="PATH/TO/DATA_DIR"),
-                output_dir="PATH\\TO\\OUTPUT_DIR",
-            ),
-        )
-
-        sweep_id = wandb.sweep(sweep_config, project="resnet18-celeba-sweep")
-        wandb.agent(sweep_id, sweep_train, count=10)
 
 
 if __name__ == "__main__":

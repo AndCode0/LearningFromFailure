@@ -3,7 +3,6 @@ import torch.nn as nn
 from torchvision import transforms as T
 from torch.utils.data import DataLoader
 import argparse
-import os
 from tqdm import tqdm
 from util import IdxDataset, MultiDimAverageMeter, set_seed, print_dict_as_table
 
@@ -15,6 +14,8 @@ def parse_args():
                         help='Root directory for dataset storage')
     parser.add_argument('-o','--output_dir', type=str, default='./results',
                         help='Directory to save results')
+    parser.add_argument('-s','--single_model', action='store_true',
+                        help='Test a single ResNet model instead of LfF model')
     args = parser.parse_args()
     
     match args.weights_path.split('\\')[:-1]:
@@ -29,6 +30,7 @@ def parse_args():
         args.target_attr_idx = 9
         args.bias_attr_idx = 20 
     else:
+        raise NotImplementedError
         args.target_attr_idx = 0     
         args.bias_attr_idx = 1
         args.skew_ratio = 0.02,
@@ -69,20 +71,26 @@ def setup_data(args) -> None:
         elif args.dataset_tag == "ColoredMNIST":
             from Data.c_MNIST import ColoredMNIST
             test_dataset = ColoredMNIST(args.data_dir, 'test', args.skew_ratio, args.severity)
-            test_dataset = IdxDataset(test_dataset)
             test_loader = DataLoader(test_dataset, batch_size=256, shuffle=True, num_workers=args.num_workers, pin_memory=True)
+            test_dataset = IdxDataset(test_loader)
     
             return test_loader
 
         else:
             raise NotImplementedError
 
-def load_model(args, device):
+def load_LfF(args, device):
     """Load pretrained models from checkpoint"""
     
     checkpoint = torch.load(args.weights_path, map_location=device)
     if args.dataset_tag == "CelebA":
         from torchvision.models import resnet18
+        if args.single_model:
+            # For single model testing
+            model = resnet18(weights=None, num_classes=2).to(device)
+            model.load_state_dict(checkpoint['model'] if 'model' in checkpoint else checkpoint)
+            return model, None, device
+        
         model_b = resnet18(weights=None, num_classes=2).to(device)
         model_d = resnet18(weights=None, num_classes=2).to(device) 
 
@@ -172,37 +180,49 @@ def main():
     set_seed(42)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    # Setup data
     test_loader = setup_data(args)
-    
-    # Load models
-    model_b, model_d, device = load_model(args, device)
-    
-    # Evaluate both models
-    print("Evaluating biased model...")
-    biased_results = evaluate(
-        model_b, test_loader, args, device
-    )
-    
-    print("Evaluating debiased model...")
-    debiased_results = evaluate(
-        model_d, test_loader, args, device
-    )
-    
-    print("\n===== Results Summary =====")
-    print(f"Biased Model:")
-    print(f"\tOverall: {biased_results['overall_acc']:.2f}%")
-    print(f"\tAligned: {biased_results['aligned_acc']:.2f}%")
-    print(f"\tSkewed: {biased_results['skewed_acc']:.2f}%")
-    if args.dataset_tag =='CelebA':
-        print_dict_as_table(biased_results["group_accs"])  
-    
-    print(f"\nDebiased Model:")
-    print(f"\tOverall: {debiased_results['overall_acc']:.2f}%")
-    print(f"\tAligned: {debiased_results['aligned_acc']:.2f}%")
-    print(f"\tSkewed: {debiased_results['skewed_acc']:.2f}%")
-    if args.dataset_tag =='CelebA':
-        print_dict_as_table(debiased_results["group_accs"])  
+
+    if args.single_model:
+        model, _, device = load_LfF(args, device)
+        
+        print("Evaluating single model...")
+        results = evaluate(model, test_loader, args, device)
+        
+        print("\n===== Results Summary =====")
+        print(f"Single Model:")
+        print(f"\tOverall: {results['overall_acc']:.2f}%")
+        print(f"\tAligned: {results['aligned_acc']:.2f}%")
+        print(f"\tSkewed: {results['skewed_acc']:.2f}%")
+
+        print_dict_as_table(results["group_accs"])
+    else:
+
+        model_b, model_d, device = load_LfF(args, device)
+        
+        print("Evaluating biased model...")
+        biased_results = evaluate(
+            model_b, test_loader, args, device
+        )
+        
+        print("Evaluating debiased model...")
+        debiased_results = evaluate(
+            model_d, test_loader, args, device
+        )
+        
+        print("\n===== Results Summary =====")
+        print(f"Biased Model:")
+        print(f"\tOverall: {biased_results['overall_acc']:.2f}%")
+        print(f"\tAligned: {biased_results['aligned_acc']:.2f}%")
+        print(f"\tSkewed: {biased_results['skewed_acc']:.2f}%")
+        if args.dataset_tag =='CelebA':
+            print_dict_as_table(biased_results["group_accs"])  
+        
+        print(f"\nDebiased Model:")
+        print(f"\tOverall: {debiased_results['overall_acc']:.2f}%")
+        print(f"\tAligned: {debiased_results['aligned_acc']:.2f}%")
+        print(f"\tSkewed: {debiased_results['skewed_acc']:.2f}%")
+        if args.dataset_tag =='CelebA':
+            print_dict_as_table(debiased_results["group_accs"])  
 
 if __name__ == "__main__":
     main()
