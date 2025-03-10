@@ -135,21 +135,6 @@ class LfFTrainer:
                 checkpoint = torch.load(self.config.weights)  # , map_location=device
                 # load weights
                 model.load_state_dict(checkpoint["model"])
-            if self.config.weights == 'pretrained':
-                model = resnet18(weights=models.ResNet18_Weights.DEFAULT)
-                # Freeze base layers
-                for param in model.parameters():
-                    param.requires_grad = False
-                # Replace final layer and make it trainable
-                model.fc = nn.Linear(model.fc.in_features, out_features=2)
-                nn.init.kaiming_normal_(model.fc.weight)
-            if self.config.weights is None:
-                model = resnet18(weights=None)
-            else:
-                # load dictionary saved from the vanilla model's training
-                checkpoint = torch.load(self.config.weights) # , map_location=device
-                # load weights
-                model.load_state_dict(checkpoint['model'])
 
         elif self.config["dataset_tag"] == "ColoredMNIST":
             from Models.SimpleConv import SimpleConvNet
